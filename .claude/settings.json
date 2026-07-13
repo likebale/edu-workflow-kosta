@@ -1,0 +1,184 @@
+{
+  "$schema": "https://anthropic.com/claude-code/settings.schema.json",
+  "name": "TaskFlow Project Settings",
+  "description": "TaskFlow 프로젝트 권한 정책: 안전성 우선, 밀어올리기/설치/비밀 파일은 승인 필수",
+
+  "defaults": {
+    "model": "haiku",
+    "theme": "dark",
+    "requirePermissionFor": [
+      "git.push",
+      "npm.install",
+      "git.commit",
+      "write.env"
+    ]
+  },
+
+  "permissions": {
+    "bash": {
+      "default": "ask",
+      "allow": [
+        "npm test",
+        "npm test -- .*",
+        "npm run lint",
+        "git status",
+        "git status --porcelain",
+        "git diff",
+        "git diff HEAD",
+        "git diff HEAD~1",
+        "git diff --staged"
+      ],
+      "ask": [
+        "git checkout",
+        "git checkout -b .*",
+        "git stash",
+        "git stash pop"
+      ],
+      "deny": [
+        "npm install",
+        "npm install --save",
+        "npm install --save-dev",
+        "npm ci",
+        "npm publish",
+        "npm unpublish",
+        "git push",
+        "git push --force",
+        "git push origin",
+        "git commit",
+        "git commit -am .*",
+        "git reset --hard",
+        "git clean -fd",
+        "rm",
+        "rm -rf",
+        "rm -f",
+        "rm -i"
+      ]
+    },
+
+    "read": {
+      "default": "allow",
+      "deny": [
+        ".env",
+        ".env.local",
+        ".env.*.local",
+        ".env.production",
+        "secrets.json",
+        "credentials.json",
+        "*.key",
+        "*.pem",
+        "**/node_modules/**",
+        "package-lock.json"
+      ]
+    },
+
+    "edit": {
+      "default": "ask",
+      "deny": [
+        ".env",
+        ".env.local",
+        ".env.production",
+        "secrets.json",
+        "credentials.json",
+        "*.key",
+        "*.pem",
+        "package.json",
+        "package-lock.json"
+      ]
+    },
+
+    "write": {
+      "default": "ask",
+      "deny": [
+        ".env",
+        ".env.local",
+        ".env.production",
+        "secrets.json",
+        "credentials.json",
+        "*.key",
+        "*.pem",
+        "package.json",
+        "package-lock.json"
+      ]
+    },
+
+    "webfetch": {
+      "default": "deny"
+    },
+
+    "websearch": {
+      "default": "allow"
+    },
+
+    "agent": {
+      "default": "allow"
+    },
+
+    "workflow": {
+      "default": "allow"
+    }
+  },
+
+  "safeguards": {
+    "requireConfirmationFor": [
+      {
+        "category": "git.push",
+        "message": "🔴 주의: 코드를 원격 저장소에 밀어올립니다. 반드시 최종 확인하세요.",
+        "requireUser": true
+      },
+      {
+        "category": "npm.install",
+        "message": "⚠️ 패키지 의존도를 변경합니다. 필요한지 확인하세요.",
+        "requireUser": true
+      },
+      {
+        "category": "git.commit",
+        "message": "✓ 커밋 메시지가 명확한지 최종 확인하세요.",
+        "requireUser": true
+      },
+      {
+        "category": "env.write",
+        "message": "🔐 .env 파일은 비밀 정보를 포함합니다. 푸시하지 않도록 주의하세요.",
+        "requireUser": true
+      }
+    ],
+    "denyDestructive": true,
+    "denySecretsAccess": true,
+    "trackAllBashCommands": true
+  },
+
+  "projectRules": {
+    "architecture": {
+      "enforceLayering": true,
+      "layers": ["routes", "controllers", "services", "db"],
+      "noDirectAccess": "Database queries must go through services, not controllers"
+    },
+    "testing": {
+      "requiredCoverageThreshold": 50,
+      "testPathPattern": "tests/",
+      "runTestsBeforePR": true
+    },
+    "gitWorkflow": {
+      "requirePRForMerge": true,
+      "requireCodeReview": true,
+      "requireTestPass": true
+    }
+  },
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "command": "bash scripts/format-lint-on-change.sh",
+            "description": "Auto-format and lint changed files (with recursion guard)"
+          },
+          {
+            "command": "bash .claude/hooks/test-after-change.sh",
+            "description": "Run tests on changed files (with recursion guard)"
+          }
+        ]
+      }
+    ]
+  }
+}
