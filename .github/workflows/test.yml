@@ -1,0 +1,111 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: ['20.x']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Clean install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --coverage --verbose
+
+      - name: Generate test report
+        if: always()
+        run: |
+          npm test -- --json --outputFile=test-results.json 2>&1 || true
+
+      - name: Upload coverage to Codecov (optional)
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Run tests and capture output
+            const { execSync } = require('child_process');
+            let testOutput = '';
+            let testPassed = false;
+
+            try {
+              testOutput = execSync('npm test 2>&1', { encoding: 'utf-8' });
+              testPassed = testOutput.includes('Tests:') && testOutput.includes('passed');
+            } catch (error) {
+              testOutput = error.stdout || error.message;
+            }
+
+            // Create comment
+            const status = testPassed ? '✅ 테스트 통과' : '❌ 테스트 실패';
+            const comment = `## ${status}
+
+            \`\`\`
+            ${testOutput.split('\n').slice(-20).join('\n')}
+            \`\`\`
+
+            **상세**: \`npm test\` 실행 결과
+
+            - 모든 테스트가 통과하고 커버리지 요구사항을 충족해야 병합할 수 있습니다.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Check test coverage
+        if: always()
+        run: |
+          echo "=== Test Coverage Report ==="
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "
+            const summary = require('./coverage/coverage-summary.json');
+            const total = summary.total;
+            console.log('Lines:', total.lines.pct + '%');
+            console.log('Statements:', total.statements.pct + '%');
+            console.log('Functions:', total.functions.pct + '%');
+            console.log('Branches:', total.branches.pct + '%');
+            "
+          fi
+
+      - name: Fail if tests failed
+        if: failure()
+        run: |
+          echo "❌ Tests failed. Please fix before pushing."
+          exit 1
