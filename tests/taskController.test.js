@@ -39,9 +39,36 @@ describe('POST /api/tasks', () => {
       expect(res.status).toBe(201);
       expect(res.body.description).toBe('이것은 설명입니다');
     });
+
+    it('유효한 status(in_progress/done)를 지정해서 생성할 수 있다', async () => {
+      const res = await request(app).post('/api/tasks').send({
+        title: '진행중 태스크',
+        status: 'in_progress',
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('in_progress');
+    });
   });
 
   describe('실패 경로', () => {
+    it('유효하지 않은 status면 400을 반환한다', async () => {
+      const res = await request(app).post('/api/tasks').send({
+        title: '잘못된 상태 태스크',
+        status: 'INVALID',
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('유효하지 않은 status 입니다');
+    });
+
+    it('숫자 타입 status면 400을 반환한다', async () => {
+      const res = await request(app).post('/api/tasks').send({
+        title: '숫자 상태 태스크',
+        status: 123,
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('유효하지 않은 status 입니다');
+    });
+
     it('title이 없으면 400을 반환한다', async () => {
       const res = await request(app).post('/api/tasks').send({});
       expect(res.status).toBe(400);
