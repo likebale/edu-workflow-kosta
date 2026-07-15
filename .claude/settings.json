@@ -165,15 +165,28 @@
   },
 
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -q '^git commit' || exit 0; npm test && npm run lint || exit 2"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
+            "type": "command",
             "command": "bash scripts/format-lint-on-change.sh",
             "description": "Auto-format and lint changed files (with recursion guard)"
           },
           {
+            "type": "command",
             "command": "bash .claude/hooks/test-after-change.sh",
             "description": "Run tests on changed files (with recursion guard)"
           }

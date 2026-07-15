@@ -1,6 +1,16 @@
-# hooks/test-after-change.sh — PostToolUse 가 변경 파일 경로를 인자로 받음
+# hooks/test-after-change.sh — PostToolUse 가 tool_input JSON을 stdin으로 전달함
 set -u
-CHANGED="$1"
+CHANGED=$(node -e '
+let data = "";
+process.stdin.on("data", c => (data += c));
+process.stdin.on("end", () => {
+  try {
+    const input = JSON.parse(data);
+    process.stdout.write((input.tool_input && input.tool_input.file_path) || "");
+  } catch (e) {}
+});
+')
+[ -n "$CHANGED" ] || exit 0
 # 루프 방지: 테스트 파일 자체가 바뀌면 무한 실행을 막기 위해 종료
 case "$CHANGED" in
   *.test.js) exit 0 ;;
